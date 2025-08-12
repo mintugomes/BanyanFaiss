@@ -1,0 +1,66 @@
+using BanyanFaiss;
+using BanyanFaiss.CSharpWrapper;
+using Microsoft.Extensions.Configuration;
+using System;
+using System.Reflection.Metadata;
+
+namespace Test
+{
+    internal class Program
+    {
+        static void Main(string[] args)
+        {
+            Config.Configuration = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory) // Needed for non-ASP.NET projects
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .AddEnvironmentVariables()
+                .AddCommandLine(args)
+                .Build();
+
+            var index = new FaissIndex();
+
+            //Generate or load your documents. It is like DB where you store documents
+            Dictionary<object, float[]> documents = new Dictionary<object, float[]>();
+
+            documents.Add(1, Onnx.GetEmbedding("The quick brown fox jumps over the lazy dog.", Onnx.EmbeddingMethods.CLS_Token));
+            documents.Add(2, Onnx.GetEmbedding("A dog runs through a field, chasing a ball.", Onnx.EmbeddingMethods.CLS_Token));
+            documents.Add(3, Onnx.GetEmbedding("Cats are known for their agility and grace.", Onnx.EmbeddingMethods.CLS_Token));
+            documents.Add(4, Onnx.GetEmbedding("A red car speeds down the highway.", Onnx.EmbeddingMethods.CLS_Token));
+            documents.Add(5, Onnx.GetEmbedding("The vehicle is moving quickly on the road.", Onnx.EmbeddingMethods.CLS_Token));
+            documents.Add(6, Onnx.GetEmbedding("Birds sing sweetly in the morning.", Onnx.EmbeddingMethods.CLS_Token));
+            documents.Add(7, Onnx.GetEmbedding("Trees provide shade and clean air.", Onnx.EmbeddingMethods.CLS_Token));
+
+            index.Add(documents[1]);
+            index.Add(documents[2]);
+            index.Add(documents[3]);
+            index.Add(documents[4]);
+            index.Add(documents[5]);
+            index.Add(documents[6]);
+            index.Add(documents[7]);
+
+            //Searching
+            string query = "Who is playing with a ball?";
+            int NumberOfNearestNeighborsMatch = 3; // Number of nearest neighbors to retrieve
+
+            var (distances, indices) = index.Search(query, NumberOfNearestNeighborsMatch);
+
+            List<SearchResult> results = index.GetDocumentsForSingleQuery(documents, indices, distances);
+
+            foreach (SearchResult result in results)
+            {
+                Console.WriteLine($"RANK: {result.Rank}, Document ID: {result.ContentID}, Distance: {result.Distance}");
+            }
+
+            /*If you have multiple queries which is very unlikely
+            Dictionary<string, List<SearchResult>> Result = index.GetDocumentsForMultipleQueries(documents, NumberOfNearestNeighborsMatch, indices, distances);
+            foreach (var value in Result)
+            {
+                Console.WriteLine($"Result for Query: {value.Key}");
+                foreach (SearchResult result in value.Value)
+                {
+                    Console.WriteLine($"RANK: {result.Rank}, Document ID: {result.DocumentID}, Distance: {result.Distance}, Error: {result.ErrorMessage}");
+                }
+            }*/
+        }
+    }
+}
